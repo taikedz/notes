@@ -1,0 +1,29 @@
+Repository creation
+
+1) Create repo on github.com
+Say the repo is called my-repo, under username me123
+The URL to the repo is https://github.com/me123/my-repo.git
+
+2) Go to or creaate a directory on your PC
+In ghbash type git init
+
+3) To add files to stage type
+git add FILENAME
+
+4) To commit locally
+git commit -m "type in arbitrary comments"
+
+5i) [one time only]
+git remote add REMOTENAME https://github.com/me123/my-repo.git
+
+5) To push to server
+git push REMOTENAME BRANCHNAME
+
+/=== example from repo creation -- not sure what README.md is for
+touch README.md
+git init
+git add README.md
+git commit -m "first commit"
+git remote add origin https://github.com/taikedz/new-repo-name.git
+git push -u origin master
+===/
