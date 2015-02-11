@@ -96,3 +96,12 @@ Ctrl+Dn/Up | Go to the next/previous window
 :set paste | turn off autoindent for pasting from X clipboard
 :set nopaste | cancel "paste" mode
 ga ; g8 | display the ASCII or UTF-8 code in the status area
+
+# Useful vim configurations
+
+Add the following to your `~/.vimrc` file
+
+	syntax on
+	set autoindent
+
+This will enable syntax highlighting and basic auto-indent. These are only available in vim, as opposed to vi, so be sure you have installed vim from your repository.
