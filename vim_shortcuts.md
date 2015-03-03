@@ -97,6 +97,18 @@ Ctrl+Dn/Up | Go to the next/previous window
 :set nopaste | cancel "paste" mode
 ga ; g8 | display the ASCII or UTF-8 code in the status area
 
+To indent a block of 6 lines 3 tab stops in, use the following sequence from command mode, from the topmost line:
+
+	Shift+V
+	5
+	Dn
+	3
+	>
+
+* `Shift+V` activates line selection mode
+* `5` then `Dn` selects five extra lines - so including the one you are on, this makes 6
+* `3` then `>` causes the selection to be shifted 3 tab stops
+
 # Useful vim configurations
 
 Add the following to your `~/.vimrc` file
