@@ -1,1 +1,168 @@
-https://www.digitalocean.com/community/tutorials/how-to-install-and-configure-seafile-on-an-ubuntu-12-04-vps
+#!/bin/bash
+
+function log {
+	echo "$@" 1>&2
+}
+
+[[ $(uname -a | grep 'Ubuntu' | wc -l) != 1 ]] && {
+	log "This does not seem to be an Ubuntu based system - please be aware that this script is designed solely with Ubuntu 14.04+ in mind."
+}
+
+echo "This is an interactive installer - it cannot be run unattended.
+Press any key to continue, or ^C to abort."
+read foo
+
+if [[ -z "$1" ]]; then
+	# ========================================
+	# Needs root
+
+	[[ $UID != 0 ]] && {
+		log "You need to be root for that"
+		exit 1
+	}
+
+	set -e
+	log "Installing dependencies"
+	apt-get update
+	apt-get install mariadb-server apache2 python2.7 python-setuptools python-imaging python-mysqldb python-flup libapache2-mod-fastcgi
+	set +e
+	# deactivated error bailout as some of these may already be active and return error onn re-attempting to activate them
+	a2enmod rewrite
+	a2enmod fastcgi
+	a2enmod proxy_http
+	a2enmod ssl
+
+	log "Setting up FastCGI in Apache conf"
+	grep 'FastCGIExternalServer /var/www/html/seahub.fcgi -host 127.0.0.1:8000' /etc/apache2/apache2.conf || {
+		cat <<EOF >> /etc/apache2/apache2.conf
+
+# Seafile
+FastCGIExternalServer /var/www/html/seahub.fcgi -host 127.0.0.1:8000
+EOF
+	}
+
+	set -e
+	# TODO ---------- Include GenSSL script ----¬
+	# (make this optional)
+	# (FIXME but we nneed to know where the key is and where the cert is)
+	log "Creating self-signed SSL"
+	SSLPATHCERT=
+	SSLPATHKEY=
+
+	# --------------/
+	set +e
+
+	OLDFILE=/etc/apache2/sites-available/default-ssl.conf
+	NEWFILE=/etc/apache2/sites-available/default-ssl-seafile.conf
+	cat <<EOF > $NEWFILE
+$(cat $OLDFILE | grep -v '</VirtualHost>')
+
+  # Seafile additional configuration
+
+  Alias /media  /home/user/haiwen/seafile-server-latest/seahub/media
+
+  SSLEngine On
+  SSLCertificateFile $SSLPATHCERT
+  SSLCertificateKeyFile $SSLPATHKEY
+
+  RewriteEngine On
+
+  #
+  # seafile fileserver
+  #
+  ProxyPass /seafhttp http://127.0.0.1:8082
+  ProxyPassReverse /seafhttp http://127.0.0.1:8082
+  RewriteRule ^/seafhttp - [QSA,L]
+
+  #
+  # seahub
+  #
+  RewriteRule ^/(media.*)$ /\$1 [QSA,L,PT]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^/(seafile.*)$ /seahub.fcgi/\$1 [QSA,L,E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</VirtualHost>
+EOF
+	log "Deactivating $OLDFILE and activating $NEWFILE apache sites"
+	a2dissite default-ssl
+	a2ensite default-ssl-seafile
+
+	# ---------------------------------------
+	log "Creating seafile user"
+	adduser seafile
+
+	bash "$0" usetup && {
+		service apache2 restart
+		bash "restart-seafile"
+	}
+fi
+
+if [[ "$1" = "usetup" ]]; then
+	# ========================================
+	# Switch to seafile user
+	mkdir myfiles
+	cd myfiles
+
+	#Download latest server
+	dlurl=$(pat='https://[^ ]+seafile-server[^ ]+x86-64.tar.gz'; wget --quiet -O - https://www.seafile.com/en/download/ | grep -E "$pat" | sed -r "s#^.+?($pat).+\$#\1#")
+	wget $dlurl
+	tar xzf $(basename $dlurl)
+	# stash the installer
+	mkdir pkg
+	mv $(basename $dlurl) pkg/
+
+	# ========================================
+	# Run setup
+
+	[[ $(ls seafile-server-* 2> /dev/null | wc -l) != 1 ]] && {
+		log "There is more than one install dir - aborting"
+		exit 2
+	}
+
+	cd seafile-server-*
+	./setup-seafile-mysql.sh # interactive
+
+
+	# ========================================
+	# Create restart tool
+
+	sfdir=$(ls -d seafile-server-*) # we already know it's the only one in the directory
+
+	cat <<EOF > restart-seahub
+#!/bin/bash
+
+# Perform action as seafile user
+( [[ \$UID = 0 ]] || [[ \$(whoami) != seafile ]] ) && su - seafile -c "$0"
+
+set -e
+$sfdir/seahub.sh stop
+$sfdir/seafile.sh stop
+$sfdir/seafile.sh start
+$sfdir/seahub.start fastcgi
+set +e
+EOF
+
+	# ========================================
+	# Get the server details
+	# TODO complete!
+	# NOTE cannot make optional as we are doing this as a non-root seafile deployment
+
+	function httpize {
+		pat='^https://'
+		sfsite=$(echo $1 | sed 's|^http:|https:|')
+		if [[ "$sfsite" =~ $pat ]]; then
+			echo "$sfsite"
+		else
+			echo "https://$sfsite"
+		fi
+	}
+
+	# FIXME - need to loop on bad input
+	read SERVNAME -p "What is the Fully Qualified Domain Name of the server? (ex: foo.bar.net) > "
+	SERVNAME=$(httpize "$SERVNAME")
+
+	cp ccnet/ccnet.conf ccnet/ccnet.conf.bak
+	cp seahub_settings.py seahub_settings.py.bak
+	sed -r -e "s|SERVICE_URL *=.+|SERVICE_URL=$SERVNAME/seafile|" -i ccnet/ccnet.conf
+	sed -r -e "s|FILE_SERVER_ROOT *=.+|FILE_SERVER_ROOT=$SERVNAME/seafhttp|" -i seahub_settings.py
+	# ========================================
+fi
