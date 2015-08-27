@@ -108,13 +108,16 @@ EOF
 	OLDFILE=/etc/apache2/sites-available/default-ssl.conf
 	NEWFILE=/etc/apache2/sites-available/default-ssl-seafile.conf
 	cat <<EOF > $NEWFILE
-$(cat $OLDFILE | grep -v '</VirtualHost>')
+$(cat $OLDFILE | grep -v '</VirtualHost>' | grep -v '</IfModule>')
 
   # Seafile additional configuration
 
   Alias /media  /home/seafile/myfiles/seafile-server-latest/seahub/media
 
   RewriteEngine On
+  <Location /media>
+      Require all granted
+  </Location>
 
   #
   # seafile fileserver
@@ -122,6 +125,14 @@ $(cat $OLDFILE | grep -v '</VirtualHost>')
   ProxyPass /seafhttp http://127.0.0.1:8082
   ProxyPassReverse /seafhttp http://127.0.0.1:8082
   RewriteRule ^/seafhttp - [QSA,L]
+  <Location /seafhttp>
+     Order allow,deny
+     Allow from all
+  </Location>
+  <Location /media>
+      Order allow,deny
+      Allow from all
+  </Location>
 
   #
   # seahub
@@ -130,6 +141,7 @@ $(cat $OLDFILE | grep -v '</VirtualHost>')
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteRule ^/(seafile.*)$ /seahub.fcgi/\$1 [QSA,L,E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 </VirtualHost>
+</IfModule>
 EOF
 	log "Deactivating $OLDFILE and activating $NEWFILE apache sites"
 	set +e
@@ -226,6 +238,10 @@ EOF
 	# also the first line doesn't seem to work...
 	sed -r -e "s|SERVICE_URL *=.+|SERVICE_URL=$SERVNAME/seafile|" -i ccnet/ccnet.conf 
 	sed -r -e "s|FILE_SERVER_ROOT *=.+|FILE_SERVER_ROOT=\"$SERVNAME/seafhttp\"|" -i seahub_settings.py
+	cat <<EOSETTINGS > seahub_settings.py
+MEDIA_URL = '/media/'
+SITE_ROOT = '/seafile/'
+EOSETTINGS
 	# ========================================
 	log "Initial setup complete"
 fi
