@@ -48,11 +48,19 @@ cat <<EOHELP
 
 Seafile Installer
 
-This installer will install and setup Seafile with Apache and HTTPS on a Ubuntu 14.04 system.
+This installer will install and setup Seafile with Apache and HTTPS
+on a Ubuntu 14.04 system.
 
-Note that you will will need to edit /etc/apache2/sites-available/default-ssl.conf to use the correct certificate; this tool does not configure certificates.
+Note that you will will need to edit
 
-This installer downloads the latest Seafile package from the official website, and runs its install script interactively, as well as installing all dependencies from APT repository.
+    /etc/apache2/sites-available/default-ssl.conf
+
+to use the correct certificate; this tool does not configure
+certificates.
+
+This installer downloads the latest Seafile package from the official
+website, and runs its install script interactively, as well as
+installing all dependencies from APT repository.
 
 Last tested with Seafile 4.3.2
 
@@ -147,7 +155,7 @@ if [[ "$1" = "usetup" ]]; then
 	cd myfiles
 
 	#Download latest server
-	dlurl=$(pat='https://[^ ]+seafile-server[^ ]+x86-64.tar.gz'; wget --quiet -O - https://www.seafile.com/en/download/ | grep -E "$pat" | sed -r "s#^.+?($pat).+\$#\1#")
+	dlurl=$(pat='https://[^ ]+seafile-server[^ ]+x86-64.tar.gz'; wget --quiet -O - https://www.seafile.com/en/download/ | grep -E "$pat" | sed -r "s%^.+?($pat).+\$%\1%")
 	[[ -n "$dlurl" ]] || {
 		log "Could not get URL for newest Seafile"
 		exit 3
@@ -190,25 +198,13 @@ EOF
 
 	# ========================================
 	# Get the server details
-	# TODO complete!
-	# NOTE cannot make optional as we are doing this as a non-root seafile deployment
-
-	function httpize {
-		pat='^https://'
-		sfsite=$(echo $1 | sed 's|^http:|https:|')
-		if [[ "$sfsite" =~ $pat ]]; then
-			echo "$sfsite"
-		else
-			echo "https://$sfsite"
-		fi
-	}
 
 	isok=0
 	urlpat='^[a-zA-Z0-9.-]+$'
 	while [[ $isok = 0 ]]; do
 		read SERVNAME -p "What is the Fully Qualified Domain Name of the server? (ex: foo.bar.net) > " 1>&2
 		if [[ $SERVNAME =~ $urlpat ]]; then
-			echo "https://$SERVNAME" > /tmp/servname # while loop has its own bloody scope
+			echo "https://$SERVNAME" > /tmp/servname # while loop has its own darn scope
 			isok=1
 		else
 			log "Invalid domain name $SERVNAME (regex to match is $urlpat)"
@@ -216,6 +212,7 @@ EOF
 	done
 
 	SERVNAME=$(cat /tmp/servname)
+	log "Updating ccnet/ccnet.conf and seahub_settings.py"
 	cp ccnet/ccnet.conf ccnet/ccnet.conf.bak
 	cp seahub_settings.py seahub_settings.py.bak
 	sed -r -e "s|SERVICE_URL *=.+|SERVICE_URL=$SERVNAME/seafile|" -i ccnet/ccnet.conf
