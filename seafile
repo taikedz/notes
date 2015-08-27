@@ -1,11 +1,65 @@
 #!/bin/bash
 
+# ============================ LICENSE ==============================
+#
+# Seafile Installer
+#   Copyrigth 2015 Tai Kedzierski
+#
+# This software is Free Software, provided to you under the terms of
+# the GNU General Public License
+# 
+# For details, see https://www.gnu.org/licenses/gpl-3.0.html
+#
+# In summary:
+#
+# The license allows you to:
+#   * Run, distribute, modify and distribute your modifications of
+#     this program
+#   * Add your name as an author if you modify the code
+#
+# The license requires that you
+#   * Deliver human-readable non-obfuscated code for this program
+#     on request if you choose to distribute it
+#   * Retain the present copyright notice
+#
+# The license prohibits you from
+#   * Prohibiting the use of your distribution of this program under
+#     any arbitrary conditions
+#   * Re-licensing the software under a less permissive license
+#     (permissiveness applying to the use and re-use of the program)
+#     or under a license otherwise incompatible with the GPLv3
+#   * Denying access to the unobfuscated source code of a version
+#     of the program that you choose to distribute
+#   * Removing this copyright notice, and its stated authors
+# 
+# ===================================================================
+
 function log {
 	echo "$@" 1>&2
 }
 
 [[ $(uname -a | grep 'Ubuntu' | wc -l) != 1 ]] && {
 	log "This does not seem to be an Ubuntu based system - please be aware that this script is designed solely with Ubuntu 14.04+ in mind."
+}
+
+helppat='help|--help|-h'
+[[ "$1" =~ $helppat ]] && {
+cat <<EOHELP
+
+Seafile Installer
+
+This installer will install and setup Seafile with Apache and HTTPS on a Ubuntu 14.04 system.
+
+Note that you will will need to edit /etc/apache2/sites-available/default-ssl.conf to use the correct certificate; this tool does not configure certificates.
+
+This installer downloads the latest Seafile package from the official website, and runs its install script interactively, as well as installing all dependencies from APT repository.
+
+Last tested with Seafile 4.3.2
+
+Run "$0" without arguments to start the install.
+
+EOHELP
+exit
 }
 
 echo "This is an interactive installer - it cannot be run unattended.
@@ -32,6 +86,7 @@ if [[ -z "$1" ]]; then
 	a2enmod proxy_http
 	a2enmod ssl
 
+	set -e
 	log "Setting up FastCGI in Apache conf"
 	grep 'FastCGIExternalServer /var/www/html/seahub.fcgi -host 127.0.0.1:8000' /etc/apache2/apache2.conf || {
 		cat <<EOF >> /etc/apache2/apache2.conf
@@ -41,16 +96,6 @@ FastCGIExternalServer /var/www/html/seahub.fcgi -host 127.0.0.1:8000
 EOF
 	}
 
-	set -e
-	# TODO ---------- Include GenSSL script ----¬
-	# (make this optional)
-	# (FIXME but we nneed to know where the key is and where the cert is)
-	log "Creating self-signed SSL"
-	SSLPATHCERT=
-	SSLPATHKEY=
-
-	# --------------/
-	set +e
 
 	OLDFILE=/etc/apache2/sites-available/default-ssl.conf
 	NEWFILE=/etc/apache2/sites-available/default-ssl-seafile.conf
@@ -59,11 +104,7 @@ $(cat $OLDFILE | grep -v '</VirtualHost>')
 
   # Seafile additional configuration
 
-  Alias /media  /home/user/haiwen/seafile-server-latest/seahub/media
-
-  SSLEngine On
-  SSLCertificateFile $SSLPATHCERT
-  SSLCertificateKeyFile $SSLPATHKEY
+  Alias /media  /home/seafile/myfiles/seafile-server-latest/seahub/media
 
   RewriteEngine On
 
@@ -83,7 +124,10 @@ $(cat $OLDFILE | grep -v '</VirtualHost>')
 </VirtualHost>
 EOF
 	log "Deactivating $OLDFILE and activating $NEWFILE apache sites"
+	set +e
+	# in case it wasn't already active
 	a2dissite default-ssl
+	set -e
 	a2ensite default-ssl-seafile
 
 	# ---------------------------------------
@@ -104,6 +148,11 @@ if [[ "$1" = "usetup" ]]; then
 
 	#Download latest server
 	dlurl=$(pat='https://[^ ]+seafile-server[^ ]+x86-64.tar.gz'; wget --quiet -O - https://www.seafile.com/en/download/ | grep -E "$pat" | sed -r "s#^.+?($pat).+\$#\1#")
+	[[ -n "$dlurl" ]] || {
+		log "Could not get URL for newest Seafile"
+		exit 3
+	}
+	log "Downloading latest Seafile server $dlurl"
 	wget $dlurl
 	tar xzf $(basename $dlurl)
 	# stash the installer
@@ -113,31 +162,29 @@ if [[ "$1" = "usetup" ]]; then
 	# ========================================
 	# Run setup
 
-	[[ $(ls seafile-server-* 2> /dev/null | wc -l) != 1 ]] && {
-		log "There is more than one install dir - aborting"
-		exit 2
-	}
-
-	cd seafile-server-*
+	log "Setting up database - questions follow:"
+	cd seafile-server-latest/
 	./setup-seafile-mysql.sh # interactive
 
 
 	# ========================================
 	# Create restart tool
 
-	sfdir=$(ls -d seafile-server-*) # we already know it's the only one in the directory
-
+	log "Creating restart script"
 	cat <<EOF > restart-seahub
 #!/bin/bash
 
 # Perform action as seafile user
-( [[ \$UID = 0 ]] || [[ \$(whoami) != seafile ]] ) && su - seafile -c "$0"
+( [[ \$UID = 0 ]] || [[ \$(whoami) != seafile ]] ) && {
+	su - seafile -c "\$0"
+	exit
+}
 
 set -e
-$sfdir/seahub.sh stop
-$sfdir/seafile.sh stop
-$sfdir/seafile.sh start
-$sfdir/seahub.start fastcgi
+seafile-server-latest/seahub.sh stop
+seafile-server-latest/seafile.sh stop
+seafile-server-latest/seafile.sh start
+seafile-server-latest/seahub.sh start-fastcgi
 set +e
 EOF
 
@@ -156,13 +203,23 @@ EOF
 		fi
 	}
 
-	# FIXME - need to loop on bad input
-	read SERVNAME -p "What is the Fully Qualified Domain Name of the server? (ex: foo.bar.net) > "
-	SERVNAME=$(httpize "$SERVNAME")
+	isok=0
+	urlpat='^[a-zA-Z0-9.-]+$'
+	while [[ $isok = 0 ]]; do
+		read SERVNAME -p "What is the Fully Qualified Domain Name of the server? (ex: foo.bar.net) > " 1>&2
+		if [[ $SERVNAME =~ $urlpat ]]; then
+			echo "https://$SERVNAME" > /tmp/servname # while loop has its own bloody scope
+			isok=1
+		else
+			log "Invalid domain name $SERVNAME (regex to match is $urlpat)"
+		fi
+	done
 
+	SERVNAME=$(cat /tmp/servname)
 	cp ccnet/ccnet.conf ccnet/ccnet.conf.bak
 	cp seahub_settings.py seahub_settings.py.bak
 	sed -r -e "s|SERVICE_URL *=.+|SERVICE_URL=$SERVNAME/seafile|" -i ccnet/ccnet.conf
 	sed -r -e "s|FILE_SERVER_ROOT *=.+|FILE_SERVER_ROOT=$SERVNAME/seafhttp|" -i seahub_settings.py
 	# ========================================
+	log "Initial setup complete"
 fi
