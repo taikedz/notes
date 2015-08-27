@@ -70,11 +70,11 @@ EOHELP
 exit
 }
 
+if [[ -z "$1" ]]; then
 echo "This is an interactive installer - it cannot be run unattended.
 Press any key to continue, or ^C to abort."
 read foo
 
-if [[ -z "$1" ]]; then
 	# ========================================
 	# Needs root
 
@@ -140,19 +140,25 @@ EOF
 
 	# ---------------------------------------
 	log "Creating seafile user"
-	adduser seafile
+	[[ $(grep -E '^seafile:' /etc/passwd | wc -l) = 1 ]] || adduser seafile
+	cp "$0" ~seafile/
+	sfinstaller=$(basename $0)
+	chown seafile:seafile ~seafile/$sfinstaller
 
-	bash "$0" usetup && {
+	su - seafile -c "bash '$sfinstaller' usetup" && {
 		service apache2 restart
-		bash "restart-seafile"
+		bash ~seafile/myfiles/restart-seahub
 	}
+	rm ~seafile/$sfinstaller
 fi
 
 if [[ "$1" = "usetup" ]]; then
 	# ========================================
 	# Switch to seafile user
+	cd $HOME
 	mkdir myfiles
 	cd myfiles
+	log "Operating in $PWD"
 
 	#Download latest server
 	dlurl=$(pat='https://[^ ]+seafile-server[^ ]+x86-64.tar.gz'; wget --quiet -O - https://www.seafile.com/en/download/ | grep -E "$pat" | sed -r "s%^.+?($pat).+\$%\1%")
@@ -171,7 +177,7 @@ if [[ "$1" = "usetup" ]]; then
 	# Run setup
 
 	log "Setting up database - questions follow:"
-	cd seafile-server-latest/
+	cd seafile-server-*/
 	./setup-seafile-mysql.sh # interactive
 
 
@@ -179,12 +185,12 @@ if [[ "$1" = "usetup" ]]; then
 	# Create restart tool
 
 	log "Creating restart script"
-	cat <<EOF > restart-seahub
+	cat <<EOF > ../restart-seahub
 #!/bin/bash
 
 # Perform action as seafile user
 ( [[ \$UID = 0 ]] || [[ \$(whoami) != seafile ]] ) && {
-	su - seafile -c "\$0"
+	su seafile -c "\$PWD/\$0"
 	exit
 }
 
@@ -201,22 +207,25 @@ EOF
 
 	isok=0
 	urlpat='^[a-zA-Z0-9.-]+$'
-	while [[ $isok = 0 ]]; do
-		read SERVNAME -p "What is the Fully Qualified Domain Name of the server? (ex: foo.bar.net) > " 1>&2
+	while true; do
+		read -p "What is the Fully Qualified Domain Name of the server? (ex: foo.bar.net) > " SERVNAME 1>&2
 		if [[ $SERVNAME =~ $urlpat ]]; then
 			echo "https://$SERVNAME" > /tmp/servname # while loop has its own darn scope
-			isok=1
+			break
 		else
 			log "Invalid domain name $SERVNAME (regex to match is $urlpat)"
 		fi
 	done
 
 	SERVNAME=$(cat /tmp/servname)
+	cd seafile-server-latest
 	log "Updating ccnet/ccnet.conf and seahub_settings.py"
 	cp ccnet/ccnet.conf ccnet/ccnet.conf.bak
 	cp seahub_settings.py seahub_settings.py.bak
-	sed -r -e "s|SERVICE_URL *=.+|SERVICE_URL=$SERVNAME/seafile|" -i ccnet/ccnet.conf
-	sed -r -e "s|FILE_SERVER_ROOT *=.+|FILE_SERVER_ROOT=$SERVNAME/seafhttp|" -i seahub_settings.py
+	# and what if they don't exist yet?
+	# also the first line doesn't seem to work...
+	sed -r -e "s|SERVICE_URL *=.+|SERVICE_URL=$SERVNAME/seafile|" -i ccnet/ccnet.conf 
+	sed -r -e "s|FILE_SERVER_ROOT *=.+|FILE_SERVER_ROOT=\"$SERVNAME/seafhttp\"|" -i seahub_settings.py
 	# ========================================
 	log "Initial setup complete"
 fi
