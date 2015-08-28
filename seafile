@@ -2,8 +2,11 @@
 
 # ============================ LICENSE ==============================
 #
-# Seafile Installer
-#   Copyrigth 2015 Tai Kedzierski
+# Custom Seafile Installer
+#   Copyright 2015 Tai Kedzierski
+#
+# This installer is NOT official, and is not directly associated with
+# the Seafile project. It's just a thing I've put together.
 #
 # This software is Free Software, provided to you under the terms of
 # the GNU General Public License
@@ -46,7 +49,7 @@ helppat='help|--help|-h'
 [[ "$1" =~ $helppat ]] && {
 cat <<EOHELP
 
-Seafile Installer
+Custom Seafile Installer (not official)
 
 This installer will install and setup Seafile with Apache and HTTPS
 on a Ubuntu 14.04 system.
@@ -234,10 +237,10 @@ EOF
 	log "Updating ccnet/ccnet.conf and seahub_settings.py"
 	cp ccnet/ccnet.conf ccnet/ccnet.conf.bak
 	cp seahub_settings.py seahub_settings.py.bak
-	# and what if they don't exist yet?
-	# also the first line doesn't seem to work...
-	sed -r -e "s|SERVICE_URL *=.+|SERVICE_URL=$SERVNAME/seafile|" -i ccnet/ccnet.conf 
+	sed -r -e "s|SERVICE_URL *=.+|SERVICE_URL=$SERVNAME/seafile|" -i ccnet/ccnet.conf
+	[[ $(grep SERVICE_URL ccnet/ccnet.conf | wc -l) = 0 ]] && {echo "SERVICE_URL=$SERVNAME/seafile" >> ccnet/ccnet.conf}
 	sed -r -e "s|FILE_SERVER_ROOT *=.+|FILE_SERVER_ROOT=\"$SERVNAME/seafhttp\"|" -i seahub_settings.py
+	[[ $(grep FILE_SERVER_ROOT | wc -l) = 0 ]] && {echo "FILE_SERVER_ROOT=\"$SERVNAME/seafhttp\"" >> seahub_settings.py"}
 	cat <<EOSETTINGS > seahub_settings.py
 MEDIA_URL = '/media/'
 SITE_ROOT = '/seafile/'
