@@ -242,7 +242,7 @@ EOF
 	[[ $(grep SERVICE_URL ccnet/ccnet.conf | wc -l) = 0 ]] && { echo "SERVICE_URL=$SERVNAME/seafile" >> ccnet/ccnet.conf; }
 	sed -r -e "s|FILE_SERVER_ROOT *=.+|FILE_SERVER_ROOT=\"$SERVNAME/seafhttp\"|" -i seahub_settings.py
 	[[ $(grep FILE_SERVER_ROOT seahub_settings.py | wc -l) = 0 ]] && { echo "FILE_SERVER_ROOT=\"$SERVNAME/seafhttp\"" >> seahub_settings.py; }
-	cat <<EOSETTINGS > seahub_settings.py
+	cat <<EOSETTINGS >> seahub_settings.py
 MEDIA_URL = '/media/'
 SITE_ROOT = '/seafile/'
 EOSETTINGS
