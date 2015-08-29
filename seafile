@@ -162,7 +162,8 @@ EOF
 
 	su - seafile -c "bash '$sfinstaller' usetup" && {
 		service apache2 restart
-		bash ~seafile/myfiles/restart-seahub
+		cd ~seafile/myfiles
+		bash restart-seahub
 	}
 	rm ~seafile/$sfinstaller
 fi
