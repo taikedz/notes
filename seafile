@@ -194,18 +194,19 @@ if [[ "$1" = "usetup" ]]; then
 	log "Setting up database - questions follow:"
 	cd seafile-server-*/
 	./setup-seafile-mysql.sh # interactive
+	cd ..
 
 
 	# ========================================
 	# Create restart tool
 
 	log "Creating restart script"
-	cat <<EOF > ../restart-seahub
+	cat <<EOF > restart-seahub
 #!/bin/bash
 
 # Perform action as seafile user
 ( [[ \$UID = 0 ]] || [[ \$(whoami) != seafile ]] ) && {
-	su seafile -c "\$PWD/\$0"
+	su seafile -c "bash \$0"
 	exit
 }
 
@@ -233,14 +234,13 @@ EOF
 	done
 
 	SERVNAME=$(cat /tmp/servname)
-	cd seafile-server-latest
 	log "Updating ccnet/ccnet.conf and seahub_settings.py"
 	cp ccnet/ccnet.conf ccnet/ccnet.conf.bak
 	cp seahub_settings.py seahub_settings.py.bak
 	sed -r -e "s|SERVICE_URL *=.+|SERVICE_URL=$SERVNAME/seafile|" -i ccnet/ccnet.conf
-	[[ $(grep SERVICE_URL ccnet/ccnet.conf | wc -l) = 0 ]] && {echo "SERVICE_URL=$SERVNAME/seafile" >> ccnet/ccnet.conf}
+	[[ $(grep SERVICE_URL ccnet/ccnet.conf | wc -l) = 0 ]] && { echo "SERVICE_URL=$SERVNAME/seafile" >> ccnet/ccnet.conf; }
 	sed -r -e "s|FILE_SERVER_ROOT *=.+|FILE_SERVER_ROOT=\"$SERVNAME/seafhttp\"|" -i seahub_settings.py
-	[[ $(grep FILE_SERVER_ROOT | wc -l) = 0 ]] && {echo "FILE_SERVER_ROOT=\"$SERVNAME/seafhttp\"" >> seahub_settings.py"}
+	[[ $(grep FILE_SERVER_ROOT seahub_settings.py | wc -l) = 0 ]] && { echo "FILE_SERVER_ROOT=\"$SERVNAME/seafhttp\"" >> seahub_settings.py; }
 	cat <<EOSETTINGS > seahub_settings.py
 MEDIA_URL = '/media/'
 SITE_ROOT = '/seafile/'
