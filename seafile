@@ -28,8 +28,8 @@
 # The license prohibits you from
 #   * Prohibiting the use of your distribution of this program under
 #     any arbitrary conditions
-#   * Re-licensing the software under a less permissive license
-#     (permissiveness applying to the use and re-use of the program)
+#   * Re-licensing the software under a license which would allow
+#     less usage, change and redistribution rights than originally,
 #     or under a license otherwise incompatible with the GPLv3
 #   * Denying access to the unobfuscated source code of a version
 #     of the program that you choose to distribute
@@ -99,6 +99,7 @@ read foo
 
 	set -e
 	log "Setting up FastCGI in Apache conf"
+	# FIXME - need to detect document root and adjust accordingly; can this be placed in the site .conf?
 	grep 'FastCGIExternalServer /var/www/html/seahub.fcgi -host 127.0.0.1:8000' /etc/apache2/apache2.conf || {
 		cat <<EOF >> /etc/apache2/apache2.conf
 
@@ -166,6 +167,7 @@ EOF
 		bash restart-seahub
 	}
 	rm ~seafile/$sfinstaller
+	# TODO - create startup scripts for sysV-init and systemd
 fi
 
 if [[ "$1" = "usetup" ]]; then
