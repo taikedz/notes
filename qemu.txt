@@ -1,0 +1,8 @@
+qemu-img create myharddisk.qcow 5G
+qemu-system-i386 -hda myhqrddisk.qcow -cdrom path/to.iso -boot d -m 1G -enable-kvm
+
+Use alternatively any of the qemu-system-* emulators
+
+Use -enable-kvm for KVM virtualization; this makes things MUCH faster - also mor stable for Windows to run???
+
+You may find that the KVM attachment fails - this is typical if you have VirtualBox for example already running, or if it ran previously in your session. You need to log out and back in again (or perhaps even reboot?)
