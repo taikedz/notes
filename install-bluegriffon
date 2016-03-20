@@ -1,0 +1,29 @@
+#!/bin/bash
+
+mkdir -p "$HOME/.local/pkg"
+cd "$HOME/.local/pkg"
+
+wget "http://bluegriffon.org/freshmeat/1.8/bluegriffon-1.8.Ubuntu15.04.x86_64.tar.bz2"
+
+tar xjf bluegriffon-1.8.Ubuntu15.04.x86_64.tar.bz2
+if [[ -d bluegriffon ]]; then
+
+	rm bluegriffon-1.8.Ubuntu15.04.x86_64.tar.bz2
+
+	mkdir -p "$HOME/.local/share/applications"
+	cat <<EOF > "$HOME/.local/share/applications/BlueGriffon.desktop"
+[Desktop Entry]
+Name=BlueGriffon
+Comment=WYSIWYG HTML Editor
+Exec=$HOME/.local/pkg/bluegriffon/bluegriffon
+Icon=$HOME/.local/pkg/bluegriffon/chrome/icons/default/default48.png
+Terminal=false
+Type=Application
+Categories=Programming;Internet;
+EOF
+
+	if [[ -f /usr/bin/update-desktop-database ]]; then
+		/usr/bin/update-desktop-database $HOME/.local/share/applications/
+	fi
+
+fi
