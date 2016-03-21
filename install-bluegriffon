@@ -91,10 +91,9 @@ mustbedir "$INSTALLDIR"
 mkdir -p "$INSTALLDIR"
 cd "$INSTALLDIR"
 
-#wget "http://bluegriffon.org/freshmeat/1.8/bluegriffon-1.8.Ubuntu15.04.x86_64.tar.bz2"
 wget "$DURL"
+tar xjf "$DFILE" || { exit 127 ; } # Unexpected error in unpacking, abort
 
-tar xjf "$DFILE"
 if [[ -d bluegriffon ]]; then
 	
 	if [[ "$DELETEPKG" ]]; then
