@@ -1,29 +1,127 @@
 #!/bin/bash
 
-mkdir -p "$HOME/.local/pkg"
-cd "$HOME/.local/pkg"
+set -u
 
-wget "http://bluegriffon.org/freshmeat/1.8/bluegriffon-1.8.Ubuntu15.04.x86_64.tar.bz2"
+DURL="http://bluegriffon.org/freshmeat/1.8/bluegriffon-1.8.Ubuntu15.04.x86_64.tar.bz2"
 
-tar xjf bluegriffon-1.8.Ubuntu15.04.x86_64.tar.bz2
+INSTALLDIR="$HOME/.local/pkg"
+DELETEPKG=no
+ARCHIVELOCATION="$INSTALLDIR/downloads"
+ROOTMODE=no
+DFILE=$(basename "$DURL")
+
+function printhelp {
+cat <<EOHELP
+
+Installs the BlueGriffon web page editor.
+
+By default, installs for the current user only. Install for all users using --root option
+
+OPTIONS
+
+--url URL
+	specify a URL to download from instead of "$DURL"
+
+--dir IDIRNAME
+	specify where to put the installed application binary
+
+--archive ADIRNAME
+	specify where to place the downloaded archive
+
+--delete
+	Whether to delete the downloaded archive
+	Overrides --archive option
+
+--root
+	Performs the installation for all users
+
+--help
+	prints this help
+
+EOHELP
+}
+
+APPSDIR="$HOME/.local/share/applications"
+
+while [[ -n "$@" ]]; do
+ARG="$1" ; shift
+case "$ARG" in
+--help)
+	printhelp
+	exit 0
+	;;
+--dir)
+	INSTALLDIR="$1" ; shift
+	;;
+--delete)
+	DELETEPKG=yes
+	;;
+--archive)
+	ARCHIVELOCATION="$1" ; shift
+	;;
+--root)
+	ROOTMODE=yes
+	;;
+--url)
+	DURL="$1" ; shift
+	DFILE=$(basename "$DURL")
+	;;
+esac
+done
+
+if [[ "$ROOTMODE" = yes ]]; then
+	if [[ $UID != 0 ]]; then
+		echo "You must be root"
+		exit 2
+	else
+		INSTALLDIR=/usr/local/share
+		APPSDIR=/usr/share/applications
+	fi
+fi
+
+function mustbedir {
+	if [[ -e "$1" ]] && [[ ! -d "$1" ]]; then
+		"[$1] already exists and is not a directory."
+		exit 1
+	fi
+}
+mustbedir "$ARCHIVELOCATION"
+mustbedir "$INSTALLDIR"
+
+mkdir -p "$INSTALLDIR"
+cd "$INSTALLDIR"
+
+#wget "http://bluegriffon.org/freshmeat/1.8/bluegriffon-1.8.Ubuntu15.04.x86_64.tar.bz2"
+wget "$DURL"
+
+tar xjf "$DFILE"
 if [[ -d bluegriffon ]]; then
+	
+	if [[ "$DELETEPKG" ]]; then
+		rm "$DFILE"
+	else
+		mkdir -p "$ARCHIVELOCATION"
+		mv "$DFILE" "$ARCHIVELOCATION/"
+	fi
 
-	rm bluegriffon-1.8.Ubuntu15.04.x86_64.tar.bz2
-
-	mkdir -p "$HOME/.local/share/applications"
-	cat <<EOF > "$HOME/.local/share/applications/BlueGriffon.desktop"
+	mkdir -p "$APPSDIR"
+	cat <<EOF > "$APPSDIR/BlueGriffon.desktop"
 [Desktop Entry]
 Name=BlueGriffon
 Comment=WYSIWYG HTML Editor
-Exec=$HOME/.local/pkg/bluegriffon/bluegriffon
-Icon=$HOME/.local/pkg/bluegriffon/chrome/icons/default/default48.png
+Exec=$INSTALLDIR/bluegriffon/bluegriffon
+Icon=$INSTALLDIR/bluegriffon/chrome/icons/default/default48.png
 Terminal=false
 Type=Application
 Categories=Programming;Internet;
 EOF
 
-	if [[ -f /usr/bin/update-desktop-database ]]; then
-		/usr/bin/update-desktop-database $HOME/.local/share/applications/
+	if [[ ! -f /usr/bin/update-desktop-database ]] && [[ "$ROOTMODE" != yes ]]; then
+		mkdir -p "$HOME/Applications"
+		ln -s "$HOME/.local/share/applications/BlueGriffon.desktop" "$HOME/Applications/BlueGriffon.desktop"
+		echo "Could not update the desktop files database. Shortcut created in ~/Applications."
+	else
+		/usr/bin/update-desktop-database "$APPSDIR"
 	fi
 
 fi
