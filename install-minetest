@@ -1,0 +1,57 @@
+#!/bin/bash
+
+set -u
+
+### Install Minetest Usage:help
+# Installs the latest minetest from PPA, all modules, plus some neat extras like Carbone NG,
+# 3d-armor mod, creatures mod and others.
+###/doc
+
+ppafile="/etc/apt/sources.list.d/minetestppa.list"
+distro=$(cat /etc/lsb-release | grep DISTRIB_CODENAME | cut -d'=' -f2)
+
+echo "deb http://ppa.launchpad.net/minetestdevs/stable/ubuntu $distro main" >> "$ppafile"
+echo "deb-src http://ppa.launchpad.net/minetestdevs/stable/ubuntu $distro main" >> "$ppafile"
+
+apt update
+
+apt install minetest* git
+
+minedir="$HOME/.minetest"
+mkdir -p "$minedir/"{games,mods,downloads}
+cd "$minedir/games"
+git clone "https://github.com/Calinou/carbone-ng"
+
+cd ../downloads
+git clone "https://github.com/stujones11/minetest-3d_armor"
+mv minetest-3d_armor/3d_armor ../mods/
+
+cd ../mods
+git clone "https://github.com/BlockMen/cme"
+
+# ==================================
+
+cat <<EOF
+
+Minetest has been successfully installed
+
+You can run minetest from your applications menu; or simply type the command "minetest"
+
+You have the main minetest-game and carbone-ng games
+
+To get started:
+
+1. Select the minetest or Carbone game (the menu area will change to reflect the selected game)
+2. Create a new world - call it what you want, use a few random characters as the seed
+3. go to the Server tab and select your world, click Configure
+4. Select mods to enable or disable on the right
+5. Click save, return to the Singleplayer tab
+6. Start playing!
+
+Getting more mods and subgames:
+
+See http://www.minetest.net/customize/
+
+This script will eventually be updated to also make adding subgames and mods easier.
+
+EOF
