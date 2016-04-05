@@ -7,6 +7,23 @@ MODE_DEBUG=no
 # print a blue debug message to stderr
 # only prints if MODE_DEBUG is set to "yes"
 ###/doc
+
+function printhelp {
+cat <<EOHELP
+Installs the latest Minetest from the official PPAs for your Ubuntu system
+
+Also installs mods:
+	* 3D Armor
+	* Creatures
+	* Unified Inventory
+
+Also installs subgames:
+	* Carbone NG
+	* Lord of the Test
+EOHELP
+}
+
+
 function debuge {
 	if [[ "$MODE_DEBUG" = yes ]]; then
 		echo -e "${CBBLU}DEBUG:$CBLU$@$CDEF" 1>&2
@@ -62,41 +79,98 @@ function uconfirm {
 	[[ "$REPLY" =~ $ans ]]
 }
 
+function getarg {
+	# getarg SWITCH LIST
+	local SWITCH=$1 ; shift
+
+	while [[ -n "$@" ]]; do
+		local ARG="$1" ; shift
+		case "$ARG" in
+			SWITCH)
+				echo "$1"
+				return 0
+				;;
+		esac
+	done
+	return 1
+}
+
+
 set -u
 
-mustberoot
 
 ### Install Minetest Usage:help
 # Installs the latest minetest from PPA, all modules, plus some neat extras like Carbone NG,
 # 3d-armor mod, creatures mod and others.
 ###/doc
 
+TUSER=$(getarg "-u" "$@")
 ppafile="/etc/apt/sources.list.d/minetestppa.list"
 distro=$(cat /etc/lsb-release | grep DISTRIB_CODENAME | cut -d'=' -f2)
 
-echo "deb http://ppa.launchpad.net/minetestdevs/stable/ubuntu $distro main" >> "$ppafile"
-echo "deb-src http://ppa.launchpad.net/minetestdevs/stable/ubuntu $distro main" >> "$ppafile"
+function installer {
 
-apt update
+	mustberoot
 
-apt install minetest* git
+	if [[ -z "$TUSER" ]]; then
+		faile 1 "Target user not specified"
+	fi
 
-minedir="$HOME/.minetest"
-mkdir -p "$minedir/"{games,mods,downloads}
-cd "$minedir/games"
-git clone "https://github.com/Calinou/carbone-ng"
+	if [[ ! -f /usr/bin/apt-get ]]; then
+		faile 2 "No apt-get"
+	fi
 
-cd ../downloads
-git clone "https://github.com/stujones11/minetest-3d_armor"
-mv minetest-3d_armor/3d_armor ../mods/
+	# at this point, system could still be debian; would it still succeed?
+	echo "deb http://ppa.launchpad.net/minetestdevs/stable/ubuntu $distro main" >> "$ppafile"
+	echo "deb-src http://ppa.launchpad.net/minetestdevs/stable/ubuntu $distro main" >> "$ppafile"
 
-cd ../mods
-git clone "https://github.com/BlockMen/cme"
-git clone "https://github.com/minetest-technic/unified_inventory/"
+	if [[ -f "$(which minetest 2>/dev/null)" ]]; then
+		if uconfirm "A version of minetest already exists. Remove it?"; then
+			apt-get remove minetest*
+			installfiles
+		else
+			warne "Leaving minetest core files unchanged"
+		fi
+	else
+		installfiles
+	fi
+}
 
-uconfirm "Install NSSM? (difficult monsters, large download ~120 MB)" && git clone "https://github.com/NPXcoot/nssm"
+function installfiles {
+	apt-get update
+	apt-get install minetest* git
+}
 
+function addmods {
+	minedir="$HOME/.minetest"
+	mkdir -p "$minedir/"{games,mods,downloads}
+	cd "$minedir/games"
+	git clone "https://github.com/Calinou/carbone-ng"
+
+	cd ../downloads
+	git clone "https://github.com/stujones11/minetest-3d_armor"
+	cp -r minetest-3d_armor/3d_armor ../mods/
+
+	cd ../mods
+	git clone "https://github.com/BlockMen/cme"
+	git clone "https://github.com/minetest-technic/unified_inventory/"
+
+	if uconfirm "Install NSSM? (difficult monsters, large download ~120 MB)" ; then
+		git clone "https://github.com/NPXcoot/nssm"
+	fi
+	if unconfirm "Install Lord of the Test? (Lord of the Rings subgame, large download)"; then
+		git clone 'https://github.com/minetest-LOTT/Lord-of-the-Test'
+	fi
+}
 # ==================================
+
+if [[ "$UID" = 0 ]]; then
+	installer
+	su - "$TUSER" -c "$0"
+else
+	addmods
+	exit 0
+fi
 
 cat <<EOF
 
@@ -104,25 +178,28 @@ Minetest has been successfully installed
 
 You can run minetest from your applications menu; or simply type the command "minetest"
 
-You have the main minetest-game and carbone-ng games
+If you encounter errors, you can find the debug information in "~$TUSER/.minetest/debug.txt"
 
 To get started:
 
 1. Select the minetest or Carbone game (the menu area will change to reflect the selected game)
 2. Create a new world - call it what you want, use a few random characters as the seed
 3. go to the Server tab and select your world, click Configure
-4. Select mods to enable or disable on the right
+4. Select mods to enable or disable on the right.
 	* cme : create creatures you can farm and fight
 	* 3d_armor : allows you to create and equip armor
 	* unified_inventory : gives you access to all loaded mods and blocks (only recommended for creative mode)
-	* If you chose to install NSSM, you have th option to enable difficult monsters
+	* If you chose to install NSSM, you have the option to enable difficult monsters
 5. Click save, return to the Singleplayer tab
-6. Start playing!
+6. Select a game and start playing! (or setup a server and get friends to connect to it!)
+	* The default subgame is "minetest-game". Apart from mods, no particular game scanarios are added.
+	* An enhanced subgame is Carbone NG, which adds some mods by default
+	* If you chose to install Lord of the Test, you have a Minetst-based "Lord of the Rings" subgame
 
 Getting more mods and subgames:
 
-See http://www.minetest.net/customize/
+See [minetest.net/customize/](http://www.minetest.net/customize/)
 
-This script will eventually be updated to also make adding subgames and mods easier.
+This script will eventually be updated to also make adding subgames and mods easier. In the meantime, enjoy!
 
 EOF
