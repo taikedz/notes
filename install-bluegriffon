@@ -41,6 +41,10 @@ OPTIONS
 EOHELP
 }
 
+function debuge {
+	echo "[1;33m$@[0m" 1>&2
+}
+
 APPSDIR="$HOME/.local/share/applications"
 
 while [[ -n "$@" ]]; do
@@ -80,6 +84,7 @@ if [[ "$ROOTMODE" = yes ]]; then
 fi
 
 function mustbedir {
+	debuge "mustbedir check : $@"
 	if [[ -e "$1" ]] && [[ ! -d "$1" ]]; then
 		"[$1] already exists and is not a directory."
 		exit 1
@@ -91,7 +96,12 @@ mustbedir "$INSTALLDIR"
 mkdir -p "$INSTALLDIR"
 cd "$INSTALLDIR"
 
-wget "$DURL"
+if [[ ! -f "$DFILE" ]]; then
+	debuge "Downloading $DFILE"
+	wget "$DURL"
+else
+	debuge "$DFILE already present"
+fi
 tar xjf "$DFILE" || { exit 127 ; } # Unexpected error in unpacking, abort
 
 if [[ -d bluegriffon ]]; then
@@ -103,6 +113,7 @@ if [[ -d bluegriffon ]]; then
 		mv "$DFILE" "$ARCHIVELOCATION/"
 	fi
 
+	debuge "Creating entry in $APPSDIR"
 	mkdir -p "$APPSDIR"
 	cat <<EOF > "$APPSDIR/BlueGriffon.desktop"
 [Desktop Entry]
@@ -120,6 +131,7 @@ EOF
 		ln -s "$HOME/.local/share/applications/BlueGriffon.desktop" "$HOME/Applications/BlueGriffon.desktop"
 		echo "Could not update the desktop files database. Shortcut created in ~/Applications."
 	else
+		debuge "Updating desktop apps database for $APPSDIR"
 		/usr/bin/update-desktop-database "$APPSDIR"
 	fi
 
