@@ -1,6 +1,70 @@
 #!/bin/bash
 
+
+MODE_DEBUG=no
+
+### debuge MESSAGE Usage:
+# print a blue debug message to stderr
+# only prints if MODE_DEBUG is set to "yes"
+###/doc
+function debuge {
+	if [[ "$MODE_DEBUG" = yes ]]; then
+		echo -e "${CBBLU}DEBUG:$CBLU$@$CDEF" 1>&2
+	fi
+}
+
+### infoe MESSAGE Usage:
+# print a green informational message to stdout
+###/doc
+function infoe {
+	echo -e "$CGRN$@$CDEF"
+}
+
+### warne MESSAGE Usage:
+# print a yellow warning message to stderr
+###/doc
+function warne {
+	echo -e "${CBYEL}WARN:$CYEL $@$CDEF" 1>&2
+}
+
+### faile MESSAGE CODE Usage:
+# print a red failure message to stderr and exit with CODE
+# CODE must be a number
+# if no code is specified, error code 127 is used
+###/doc
+function faile {
+	local MSG=
+	local ARG=
+	local ERCODE=127
+	local numpat='^[0-9]+$'
+	while [[ -n "$@" ]]; do
+		ARG=$1 ; shift
+		if [[ -z "$@" ]] && [[ "$ARG" =~ $numpat ]]; then
+			ERCODE=$ARG
+		else
+			MSG="$MSG $ARG"
+		fi
+	done
+	echo "${CBRED}ERROR FAIL:$CRED$MSG$CDEF" 1>&2
+	exit "$ERCODE"
+}
+
+
+function mustberoot {
+	if [[ "$UID" != 0 ]]; then
+		faile "You must be root"
+	fi
+}
+
+function uconfirm {
+	read -p "%@ [y/N]"
+	local ans='^yes|YES|y|Y$'
+	[[ "$REPLY" =~ $ans ]]
+}
+
 set -u
+
+mustberoot
 
 ### Install Minetest Usage:help
 # Installs the latest minetest from PPA, all modules, plus some neat extras like Carbone NG,
@@ -28,6 +92,9 @@ mv minetest-3d_armor/3d_armor ../mods/
 
 cd ../mods
 git clone "https://github.com/BlockMen/cme"
+git clone "https://github.com/minetest-technic/unified_inventory/"
+
+uconfirm "Install NSSM? (difficult monsters, large download ~120 MB)" && git clone "https://github.com/NPXcoot/nssm"
 
 # ==================================
 
@@ -45,6 +112,10 @@ To get started:
 2. Create a new world - call it what you want, use a few random characters as the seed
 3. go to the Server tab and select your world, click Configure
 4. Select mods to enable or disable on the right
+	* cme : create creatures you can farm and fight
+	* 3d_armor : allows you to create and equip armor
+	* unified_inventory : gives you access to all loaded mods and blocks (only recommended for creative mode)
+	* If you chose to install NSSM, you have th option to enable difficult monsters
 5. Click save, return to the Singleplayer tab
 6. Start playing!
 
