@@ -1,0 +1,5 @@
+#!/bin/bash
+
+#% bashout readargs
+
+echo "User is $(argread 1 '-u')"
