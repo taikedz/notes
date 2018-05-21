@@ -1,0 +1,66 @@
+version: "2"
+
+networks:
+  gitea:
+    external: false
+
+volumes:
+  mysql:
+    driver: local
+  gitea:
+    driver: local
+
+services:
+  server:
+    image: gitea/gitea:latest
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - APP_NAME="Personal Gitea"
+      - DB_TYPE=mysql
+      - DB_HOST=db:3306
+      - DB_USER=gitea
+      - DB_NAME=gitea
+      - DB_PASSWD=gitea
+    restart: always
+    networks:
+      - gitea
+    volumes:
+      - gitea:/data
+    ports:
+      # external:internal
+      # these should not be needed when using traefik
+      - "3000:3000"
+      - "222:22"
+    depends_on:
+      - db
+
+  db:
+    image: mysql:5.7
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=gitea
+      - MYSQL_USER=gitea
+      - MYSQL_PASSWORD=gitea
+      - MYSQL_DATABASE=gitea
+    networks:
+      - gitea
+    volumes:
+      - mysql:/var/lib/mysql
+
+# ---- Environment variables for the gitea service
+
+# APP_NAME: “Gitea: Git with a cup of tea”: Application name, used in the page title.
+# RUN_MODE: dev: For performance and other purposes, change this to prod when deployed to a production environment.
+# SSH_DOMAIN: localhost: Domain name of this server, used for displayed clone UR in Gitea’s UI.
+# SSH_PORT: 22: SSH port displayed in clone URL.
+# DISABLE_SSH: false: Disable SSH feature when it’s not available.
+# HTTP_PORT: 3000: HTTP listen port.
+# ROOT_URL: ””: Overwrite the automatically generated public URL. This is useful if the internal and the external URL don’t match (e.g. in Docker).
+# DB_TYPE: sqlite3: The database type in use [mysql, postgres, mssql, sqlite3].
+# DB_HOST: localhost:3306: Database host address and port.
+# DB_NAME: gitea: Database name.
+# DB_USER: root: Database username.
+# DB_PASSWD: ““: Database user password. Use `your password` for quoting if you use special characters in the password.
+# INSTALL_LOCK: false: Disallow access to the install page.
+# SECRET_KEY: ””: Global secret key. This should be changed. If this has a value and INSTALL_LOCK is empty, INSTALL_LOCK will automatically set to true.
