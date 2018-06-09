@@ -3,6 +3,8 @@ version: "2"
 networks:
   gitea:
     external: false
+  web:
+    external: true
 
 volumes:
   mysql:
@@ -11,12 +13,15 @@ volumes:
     driver: local
 
 services:
-  server:
+  gitea:
     image: gitea/gitea:latest
+    # The SSH_PORT does not affect where SSH actually listens, but what port is displayed
+    #   in the UI
     environment:
       - USER_UID=1000
       - USER_GID=1000
       - APP_NAME="Personal Gitea"
+      - SSH_PORT=222
       - DB_TYPE=mysql
       - DB_HOST=db:3306
       - DB_USER=gitea
@@ -25,6 +30,7 @@ services:
     restart: always
     networks:
       - gitea
+      - web
     volumes:
       - gitea:/data
     ports:
